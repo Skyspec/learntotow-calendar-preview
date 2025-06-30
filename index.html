@@ -15,7 +15,6 @@
     #calendar { max-width: 900px; margin: 0 auto; background: white; padding: 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
     .fc-event-title, .fc-event-location { font-size: 0.85em; }
     .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
-    .hidden { display: none; }
     .modal-content { background: white; padding: 20px; border-radius: 6px; width: 280px; }
     .modal-content label { display: block; margin-bottom: 10px; }
     .modal-content input, .modal-content select { width: 100%; padding: 5px; }
@@ -31,7 +30,7 @@
 <main>
   <div id="calendar"></div>
 </main>
-<div id="modal" class="modal hidden">
+<div id="sessionModal" class="modal" style="display: none;">
   <form id="event-form" class="modal-content">
     <h2 id="form-title">Add Session</h2>
     <input type="hidden" id="event-id">
@@ -39,7 +38,7 @@
       <input type="text" id="session-title" required>
     </label>
     <label>Start Date &amp; Time
-      <input type="datetime-local" id="session-start" required>
+      <input type="datetime-local" id="sessionFormDate" required>
     </label>
     <label>Location
       <input type="text" id="session-location">
@@ -65,10 +64,10 @@
     const stateColors = { QLD: 'orange', VIC: 'blue', NSW: 'green', ACT: 'purple' };
 
     const calendarEl = document.getElementById('calendar');
-    const modal = document.getElementById('modal');
+    const modal = document.getElementById('sessionModal');
     const form = document.getElementById('event-form');
     const titleInput = document.getElementById('session-title');
-    const startInput = document.getElementById('session-start');
+    const startInput = document.getElementById('sessionFormDate');
     const locationInput = document.getElementById('session-location');
     const stateInput = document.getElementById('session-state');
     const deleteBtn = document.getElementById('delete-btn');
@@ -113,12 +112,23 @@
       } else if (data && data.start) {
         startInput.value = data.start;
       }
-      modal.classList.remove('hidden');
+      modal.style.display = 'block';
     }
 
     function closeModal() {
-      modal.classList.add('hidden');
+      modal.style.display = 'none';
       editingEvent = null;
+    }
+
+    function openSessionForm(dateStr) {
+      form.reset();
+      editingEvent = null;
+      deleteBtn.style.display = 'none';
+      formTitle.textContent = 'Add Session';
+      if (dateStr) {
+        startInput.value = dateStr + 'T09:00';
+      }
+      modal.style.display = 'block';
     }
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -140,7 +150,7 @@
         return { domNodes: [title, info] };
       },
       dateClick(info) {
-        openModal({ start: info.dateStr + 'T09:00' });
+        openSessionForm(info.dateStr);
       },
       eventClick(info) {
         openModal(info.event);
