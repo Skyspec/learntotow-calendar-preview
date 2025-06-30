@@ -1,21 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Learn to Tow - Calendar</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f9f9f9;
     }
     header {
-      padding: 20px;
+      display: flex;
+      align-items: center;
+      padding: 10px 20px;
       background-color: #003049;
       color: white;
-      text-align: center;
+    }
+    header img {
+      height: 40px;
+      margin-right: 15px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0;
     }
     main {
       padding: 20px;
@@ -26,6 +36,149 @@
       background: white;
       padding: 10px;
       border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-  </styl
+    .fc-event-title,
+    .fc-event-location {
+      font-size: 0.85em;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <img src="assets/logo.png" alt="Learn to Tow" />
+  <h1>Learn to Tow - Calendar</h1>
+</header>
+<main>
+  <div id="calendar"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const stateColors = { QLD: 'orange', VIC: 'blue' };
+
+    function loadEvents() {
+      const stored = localStorage.getItem('calendarEvents');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+      return [{
+        id: String(Date.now()),
+        title: 'Sample Session',
+        start: new Date().toISOString().split('T')[0] + 'T09:00',
+        end: new Date(Date.now() + 60*60*1000).toISOString().slice(0,16),
+        extendedProps: { location: 'Brisbane', state: 'QLD' },
+        color: stateColors['QLD']
+      }];
+    }
+
+    function saveEvents(events) {
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+    }
+
+    function toObject(event) {
+      return {
+        id: event.id,
+        title: event.title,
+        start: event.startStr,
+        end: event.endStr,
+        extendedProps: {
+          location: event.extendedProps.location,
+          state: event.extendedProps.state
+        },
+        color: event.backgroundColor
+      };
+    }
+
+    function getColor(state) {
+      return stateColors[state] || '#3788d8';
+    }
+
+    function promptForEvent(opts) {
+      const title = prompt('Session title:', opts.title || '');
+      if (!title) return null;
+      const startTime = prompt('Start time (HH:MM, 24h):', opts.startTime || '09:00');
+      if (!startTime) return null;
+      const duration = parseFloat(prompt('Duration in hours:', opts.duration || '1')) || 1;
+      const location = prompt('Location:', opts.location || '') || '';
+      const state = prompt('State (e.g., QLD, VIC):', opts.state || '') || '';
+
+      const startDateStr = (opts.date || opts.startDate) + 'T' + startTime;
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
+
+      return {
+        id: opts.id || String(Date.now()),
+        title: title,
+        start: startDate.toISOString().slice(0,16),
+        end: endDate.toISOString().slice(0,16),
+        extendedProps: { location: location, state: state },
+        color: getColor(state)
+      };
+    }
+
+    const calendarEl = document.getElementById('calendar');
+    const events = loadEvents();
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+      selectable: true,
+      editable: true,
+      events: events,
+      eventContent: function(arg) {
+        const title = document.createElement('div');
+        title.textContent = arg.event.title;
+        const info = document.createElement('div');
+        const loc = arg.event.extendedProps.location;
+        info.textContent = arg.timeText + (loc ? ' - ' + loc : '');
+        return { domNodes: [title, info] };
+      },
+      dateClick: function(info) {
+        const newEvt = promptForEvent({ date: info.dateStr });
+        if (newEvt) {
+          calendar.addEvent(newEvt);
+          saveEvents(calendar.getEvents().map(toObject));
+        }
+      },
+      eventClick: function(info) {
+        const action = prompt("Type 'edit' to edit or 'delete' to remove this session:");
+        if (action === 'delete') {
+          if (confirm('Delete this session?')) {
+            info.event.remove();
+            saveEvents(calendar.getEvents().map(toObject));
+          }
+        } else if (action === 'edit') {
+          const edited = promptForEvent({
+            id: info.event.id,
+            date: info.event.startStr.slice(0,10),
+            startTime: info.event.startStr.slice(11,16),
+            duration: ((info.event.end - info.event.start) / 3600000) || 1,
+            title: info.event.title,
+            location: info.event.extendedProps.location,
+            state: info.event.extendedProps.state
+          });
+          if (edited) {
+            info.event.remove();
+            calendar.addEvent(edited);
+            saveEvents(calendar.getEvents().map(toObject));
+          }
+        }
+      },
+      eventDrop: function() {
+        saveEvents(calendar.getEvents().map(toObject));
+      },
+      eventResize: function() {
+        saveEvents(calendar.getEvents().map(toObject));
+      }
+    });
+
+    calendar.render();
+  });
+</script>
+</body>
+</html>
